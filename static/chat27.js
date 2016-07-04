@@ -1,13 +1,14 @@
 /* chat27.js */
 var keyring = new openpgp.Keyring();
 var refreshInterval;
+tabStack = [];
 
 /* Caches plaintext messages to avoid decrypting same message multiple times within session */
 var cache = {
-	readMessages: {
-		'chat27': []
-	},
-	unreadMessages: {}
+    readMessages: {
+        'chat27': []
+    },
+    unreadMessages: {}
 };
 
 $(document).ready(start);
@@ -15,12 +16,13 @@ function start(){
     var pair = getKeys();
     if(pair){
         var nickname = pair.pub.getPrimaryUser().user.userId.userid;
-        chat27MessageYou('Keys found ({0})'.format(nickname));
-        chat27MessageYou('Enter password to decrypt keys:');
+        messageToHTML(false, 'Keys found in localStorage ({0})'.format(nickname));
+        messageToHTML(false, 'Enter password to decrypt');
         input(decryptKeysIn(pair));
     } else {
-        chat27MessageYou('Generating keys');
-        chat27MessageYou('Enter nickname:');
+        messageToHTML(false, 'No keys found in localStorage');
+        messageToHTML(false, 'Generating keys');
+        messageToHTML(false, 'Enter nickname');
         input(nicknameIn);
     }
 }
@@ -58,114 +60,117 @@ function generateKeys(nickname){
             
             pair.priv.decrypt(pwd);
             init(pair);
-            chat27MessageYou('Login successful');
-			
-			$.ajax({
-				method: 'POST',
-				'url': '/registerPubKey/',
-				'data': {
-					'pub': keypair.publicKeyArmored
-				}
-			})
-			.done(function(resp){})
-			.fail(function(resp){
-				console.log('Register public key failed')
-			});
+            $('#messages').html('');
+            $('#messages').hide();
+            $('#title-right').show();
+            hideInputForm();
+            tab('friends');
+            
+            $.ajax({
+                method: 'POST',
+                'url': '/registerPubKey/',
+                'data': {
+                    'pub': keypair.publicKeyArmored
+                }
+            })
+            .done(function(resp){})
+            .fail(function(resp){
+                console.log('Register public key failed')
+            });
         });
     }
 }
 
 function sendChallenge(pair, toPub, text){
-	/* Encrypt with their pub for transmission, own pub for storage */
-	var signedMsg = openpgp.message.fromText(text).sign([pair.priv]);
-	var ctSend = signedMsg.encrypt([toPub]).armor();
-	var ctStorage = signedMsg.encrypt([pair.pub]);
+    /* Encrypt with their pub for transmission, own pub for storage */
+    var signedMsg = openpgp.message.fromText(text).sign([pair.priv]);
+    var ctSend = signedMsg.encrypt([toPub]).armor();
+    var ctStorage = signedMsg.encrypt([pair.pub]);
 
-	$.ajax({
-		method: 'POST',
-		'url': '/sendChallenge/',
-		'data': {
-			'fromPub': pair.pub.armor(),
-			'toPub': toPub.armor(),
-			'ciphertext': ctSend
-		}
-	})
-	.done(function(challenge){
-		sendResponse(pair, challenge, function(){
-			ctStorage.store(pair.pub, toPub, true);
-			signedMsg.cache(pair.pub, toPub, true);
-		});
-	})
-	.fail(function(resp){
-		console.log('Send challenge failed');
-	}); 
+    $.ajax({
+        method: 'POST',
+        'url': '/sendChallenge/',
+        'data': {
+            'fromPub': pair.pub.armor(),
+            'toPub': toPub.armor(),
+            'ciphertext': ctSend
+        }
+    })
+    .done(function(challenge){
+        sendResponse(pair, challenge, function(){
+            ctStorage.store(pair.pub, toPub, true);
+            signedMsg.cache(pair.pub, toPub, true);
+        });
+    })
+    .fail(function(resp){
+        console.log('Send challenge failed');
+    }); 
 }
 
 function sendResponse(pair, challenge, callback){
-	openpgp.signClearMessage(pair.priv, challenge).then(function(signature){
-		console.log(signature);
-		$.ajax({
-			method: 'POST',
-			'url': '/sendResponse/',
-			'data': {
-				'fromPub': pair.pub.armor(),
-				'challenge': challenge,
-				'signature': signature.substring(signature.indexOf('-----BEGIN PGP SIGNATURE-----'))
-			}
-		})
-		.done(callback)
-		.fail(function(resp){
-			console.log('Send response failed');
-		});
-	})
+    openpgp.signClearMessage(pair.priv, challenge).then(function(signature){
+        $.ajax({
+            method: 'POST',
+            'url': '/sendResponse/',
+            'data': {
+                'fromPub': pair.pub.armor(),
+                'challenge': challenge,
+                'signature': signature.substring(signature.indexOf('-----BEGIN PGP SIGNATURE-----'))
+            }
+        })
+        .done(callback)
+        .fail(function(resp){
+            console.log('Send response failed');
+        });
+    })
 }
 
 function refreshChallenge(pair){
-	$.ajax({
-		method: 'POST',
-		url: '/refreshChallenge/',
-		data: {
-			'pub': pair.pub.armor()
-		}
-	})
-	.done(function(challenge) {
-		refreshResponse(pair, challenge);
-	})
-	.fail(function(resp){
-		console.log('Refresh challenge failed');
-	});
+    $.ajax({
+        method: 'POST',
+        url: '/refreshChallenge/',
+        data: {
+            'pub': pair.pub.armor()
+        }
+    })
+    .done(function(challenge) {
+        refreshResponse(pair, challenge);
+    })
+    .fail(function(resp){
+        console.log('Refresh challenge failed');
+    });
 }
 
 function refreshResponse(pair, challenge){
-	openpgp.signClearMessage(pair.priv, challenge).then(function(signature){
-		$.ajax({
-			method: 'POST',
-			url: '/refreshResponse/',
-			data: {
-				'pub': pair.pub.armor(),
-				'challenge': challenge,
-				'signature': signature.substring(signature.indexOf('-----BEGIN PGP SIGNATURE-----'))	
-			}
-		})
-		.done(function(data){
-			for(var i=0; i < data.Messages.length; i++){
-				var m = data.Messages[i];
-				var fromPub = addPubKey(pair, data.FromPubs[i]);
-				//var dt = data.Dates[i];
-				if(fromPub){
-					var ct = openpgp.message.readArmored(m);
-					var pt = ct.decrypt(pair.priv);
-					if(pt && pt.verify([fromPub])[0].valid){
-						pt.cache(fromPub, pair.pub, false);
-						ct.store(fromPub, pair.pub, false);
-					}
-				}
-			}
-		})
-		.fail(function(resp){
-			console.log('Refresh response failed');
-		});
-	})
+    openpgp.signClearMessage(pair.priv, challenge).then(function(signature){
+        $.ajax({
+            method: 'POST',
+            url: '/refreshResponse/',
+            data: {
+                'pub': pair.pub.armor(),
+                'challenge': challenge,
+                'signature': signature.substring(signature.indexOf('-----BEGIN PGP SIGNATURE-----'))    
+            }
+        })
+        .done(function(data){
+            for(var i=0; i < data.Messages.length; i++){
+                var m = data.Messages[i];
+                var fromPub = addPubKey(pair, data.FromPubs[i]);
+                //var dt = data.Dates[i];
+                if(fromPub){
+                    var ct = openpgp.message.readArmored(m);
+                    var pt = ct.decrypt(pair.priv);
+                    if(pt && pt.verify([fromPub])[0].valid){
+                        pt.cache(fromPub, pair.pub, false);
+                        ct.store(fromPub, pair.pub, false);
+                    }
+                }
+            }
+        })
+        .fail(function(resp){
+            console.log('Refresh response failed');
+        });
+    })
 }
 
 function addPubKey(pair, pubStr){
@@ -178,42 +183,42 @@ function addPubKey(pair, pubStr){
         var pub = openpgp.key.readArmored(pubStr).keys[0];
         if(numKeys != keyring.publicKeys.keys.length){
             addFriendHTML(pub);
-            sendChallenge(pair, pub, ' is ready to chat');
-            chat27MessageYou("You added {0}'s key ({1})".format(pub.getPrimaryUser().user.userId.userid, pub.primaryKey.fingerprint));
+            sendChallenge(pair, pub, 'Ready to chat');
         }
         return pub;
     }
 }
 
 function switchFriend(pair, friendFingerprint){
-	$('#messages').html('');
+    $('#messages').html('');
+    tab('messages');
     $('.friend-selected').find('.unread').html('');
 
-	/* Check cache for plaintexts, else decrypt and initialize cache */
+    /* Check cache for plaintexts, else decrypt and initialize cache */
     var read = cache.readMessages[friendFingerprint];
     if(read){
         var merge = read.concat(cache.unreadMessages[friendFingerprint] || []);
         cache.readMessages[friendFingerprint] = merge;
         cache.unreadMessages[friendFingerprint] = [];
-		for(var i=0; i < merge.length; i++){
-			var m = merge[i];
+        for(var i=0; i < merge.length; i++){
+            var m = merge[i];
             messageToHTML(m.fromFingerprint, m.text);
-		}
-	} else {
-		cache.unreadMessages[friendFingerprint] = [];	/* Avoid double printing these since theyre also stored */
+        }
+    } else {
+        cache.unreadMessages[friendFingerprint] = [];   /* Avoid double printing these since theyre also stored */
         var msgs = getMessages().filter(function(m){
-			return friendFingerprint == (m.outgoing ? m.toFingerprint : m.fromFingerprint);
-		});
-		for(var i=0; i < msgs.length; i++){
-			var m = msgs[i];
-			var fromPub = keyring.publicKeys.getForId(m.fromFingerprint);
+            return friendFingerprint == (m.outgoing ? m.toFingerprint : m.fromFingerprint);
+        });
+        for(var i=0; i < msgs.length; i++){
+            var m = msgs[i];
+            var fromPub = keyring.publicKeys.getForId(m.fromFingerprint);
             var toPub = keyring.publicKeys.getForId(m.toFingerprint);
             var ct = openpgp.message.readArmored(m.ciphertext);
             var pt = ct.decrypt(pair.priv);
             if(pt.verify([fromPub])[0].valid){
                 pt.cache(fromPub, toPub, m.outgoing);
             }
-		}
+        }
     }
 }
 
@@ -234,7 +239,7 @@ window.openpgp.message.Message.prototype.cache = function(fromPub, toPub, outgoi
         'toFingerprint': toPub.primaryKey.fingerprint,
         'text': this.getText()
     }
-    
+
     var friendFinger = outgoing ? toPub.primaryKey.fingerprint : fromPub.primaryKey.fingerprint;
     if(friendFinger == $('.friend-selected').attr('fingerprint')){
         messageToHTML(fromPub.primaryKey.fingerprint, this.getText());
@@ -244,8 +249,8 @@ window.openpgp.message.Message.prototype.cache = function(fromPub, toPub, outgoi
         var pre = cache.unreadMessages[friendFinger] || [];
         cache.unreadMessages[friendFinger] = pre.concat([m]);
         $('.friend[fingerprint="{0}"]'.format(friendFinger))
-			.find('.unread')
-			.html('({0})'.format(pre.length + 1));
+            .find('.unread')
+            .html('({0})'.format(pre.length + 1));
     }
 };
 
@@ -255,62 +260,32 @@ function getMessages(){
 
 function addFriendHTML(pub){
     var nickname = pub.getPrimaryUser().user.userId.userid;
-	var fingerprint = pub.primaryKey.fingerprint;
+    var fingerprint = pub.primaryKey.fingerprint;
     var color = hashToDarkColor(fingerprint);
     var html =
-		'<div class="friend friend-box" fingerprint="{0}">'
-		+ '<div class="circle" style="background-color:#{1}"></div>'
-		+ '<span class="friend-name"> {2} </span>'
-		+ '<span class="unread"></span>'
-		+ '<span class="friend-info">i</span>'
-		+ '</div><hr>';
+        '<div class="friend friend-box" fingerprint="{0}">'
+        + '<div class="circle" style="background-color:#{1}"></div>'
+        + '<span class="friend-name"> {2} </span>'
+        + '<span class="unread"></span>'
+        + '<span class="friend-info"></span>'
+        + '</div><hr>';
     html = $(html.format(fingerprint, color, escapeHtml(nickname)));
-    $('#friends-list').append(html);
+    $('#friends').append(html);
 }
 
 function messageToHTML(fingerprint, text){
-    var color = (fingerprint == 'chat27') ? 'black' : hashToDarkColor(fingerprint);
-    var nickname = (fingerprint == 'chat27') ? 'chat27' : keyring.publicKeys.getForId(fingerprint).getPrimaryUser().user.userId.userid;
-	
-    var messageHTML = '' +
-    '<div class="chat-msg">' +
-        '<span class="nickname" style="color: #{0};"> {1} </span>'.format(color, escapeHtml(nickname)) +
-        '<span class="msg-text">{0}</span>'.format(escapeHtml(text)) +
-    '</div>';
-    
-    $('#messages').append(messageHTML);
+    var color = fingerprint ? hashToDarkColor(fingerprint) : '000000';
+    var message = $('<div class="bubble-left"></div>');
+    message.css({
+        'background-color': '#{0}'.format(color),
+        'border-color': 'transparent #{0}'.format(color)
+    });
+
+    message.html(escapeHtml(text));
+    $('#messages').append(message);
+    $('#messages').append('<br>');
     var msgWindow = $('#messages');
     msgWindow.scrollTop(msgWindow.prop('scrollHeight'));  
-}
-
-function chat27MessageYou(m){
-    messageToHTML('chat27', m);
-	cache.readMessages['chat27'].push({
-		'fromFingerprint': 'chat27',
-        'text': m
-	});
-}
-
-function youMessageChat27(pair, m){
-    switch (m.toLowerCase()) {
-        case 'fingerprint':
-            chat27MessageYou(pair.pub.primaryKey.fingerprint);
-            break;
-         case 'publickey':
-            chat27MessageYou(pair.pub.armor());
-            break;
-         case 'keyring':
-            chat27MessageYou(keyring.publicKeys.keys.length);
-            break;
-        case 'sign':
-            break;
-        case 'messages':
-            chat27MessageYou(getMessages().length + ' messages');
-            break;
-        default:
-            chat27MessageYou('COMMANDS: fingerprint publickey keyring sign messages');
-            break;   
-    }
 }
 
 function hashToDarkColor(fingerprint) {
@@ -327,46 +302,105 @@ function hashToDarkColor(fingerprint) {
 }
 
 function friendInfo(fingerprint){
-	var pub = keyring.publicKeys.getForId(fingerprint);
-	var nickname = pub.getPrimaryUser().user.userId.userid;
-	var pubStr =  pub.armor();
+    var pub = keyring.publicKeys.getForId(fingerprint);
+    var nickname = pub.getPrimaryUser().user.userId.userid;
+    var pubStr =  pub.armor();
 
-	var card = 
-		'<div class="friend-info-card">'
-		+ ''
-		+ '{0}'
-		+ '<br>'
-		+ '{1}'
-		+ '<br>'
-		+ '{2}'
-		+ '</div>';
-	
-	card = card.format(nickname, fingerprint, pubStr);
-	$('#messages').html(card);
+    var card = 
+        '<div class="friend-info-card">'
+        + ''
+        + '{0}'
+        + '<br>'
+        + '{1}'
+        + '<br>'
+        + '{2}'
+        + '</div>';
+
+    card = card.format(nickname, fingerprint, pubStr);
+    //$('#messages').html(card);
+}
+
+function hideInputForm(){
+    $('#input-form').hide();
+    $('#chat-room-window').css('bottom', '10px');
+}
+
+function showInputForm(){
+    $('#input-form').show();
+    $('#chat-room-window').css('bottom', '90px');
+}
+
+function tab(to){
+    var prev = tabStack[tabStack.length - 1];
+    tabStack.push(to);
+    $('#' + prev).hide();
+    $('#' + to).show();
+    
+    if(to == "messages"){
+        showInputForm();
+    } else if(prev == "messages"){
+        hideInputForm();
+    }
+    
+    if(to == 'settings'){
+        $('#title-right').hide();
+    }
+    if(prev == 'friends'){
+        $('#title-left').show();
+    }
+}
+
+function back(){
+    var prev = tabStack.pop();
+    var to = tabStack[tabStack.length - 1];
+    $('#' + prev).hide();
+    $('#' + to).show();
+    
+    if(to == "messages"){
+        showInputForm();
+    } else if(prev == "messages"){
+        hideInputForm();
+    }
+    
+    if(to == 'friends'){
+        $('#title-left').hide();
+    }
+    if(prev == 'settings'){
+        $('#title-right').show();
+    }
 }
 
 function init(pair){
     input(chatIn(pair));
     keyring.publicKeys.keys.forEach(addFriendHTML);
-    
+    var addMeUrl = 'localhost:11994/add/{0}'.format(pair.pub.primaryKey.fingerprint);
+
     $('#menu-wrapper').show();
-	$('#add-me').val('localhost:11994/add/{0}'.format(pair.pub.primaryKey.fingerprint));
+    $('#add-me').val(addMeUrl);
     $('#add-me').click(function(){
         $(this).select();
     });
-	
-	$('#refresh-time').on('change', function(){
-		changeInterval(pair, $(this).val());
-	});
+    $('#add-me').change(function(){
+        $(this).val(addMeUrl);
+    });
+    
+    $('#title-left').on('click', back);
+    $('#title-right').on('click', function(){
+        tab('settings');
+    });
+    
+    $('#refresh-time').on('change', function(){
+        changeInterval(pair, $(this).val());
+    });
 
-    $('#friends-list').on('click', '.friend', function(e){
-		if(e.target.className == 'friend-info'){
-			friendInfo($(this).attr('fingerprint'));
-		} else {
-			$('.friend').removeClass('friend-selected');
-			$(this).addClass('friend-selected');
-			switchFriend(pair, $(this).attr('fingerprint'));
-		}
+    $('#friends').on('click', '.friend', function(e){
+        if(e.target.className == 'friend-info'){
+            friendInfo($(this).attr('fingerprint'));
+        } else {
+            $('.friend').removeClass('friend-selected');
+            $(this).addClass('friend-selected');
+            switchFriend(pair, $(this).attr('fingerprint'));
+        }
     });
 
     $('#regenerate-keys').click(function(){
@@ -377,39 +411,39 @@ function init(pair){
         }
     });
     
-	if(window.location.pathname.indexOf("/add/") == 0){
-		var fingerprint = window.location.pathname.substring(5);
-		window.history.pushState('', '', '/');
-		$.ajax({
-			method: 'GET',
-			'url': '/lookupPubKey/',
-			'data': {
-				'fingerprint': fingerprint
-			}
-		}).done(function(pubStr){
-			var pub = addPubKey(pair, pubStr);
-			if(fingerprint != pub.primaryKey.fingerprint){
-				alert('fingerprint mismatch');//TODO
-			}
-		}).fail(function(resp){
-		}); 
+    if(window.location.pathname.indexOf("/add/") == 0){
+        var fingerprint = window.location.pathname.substring(5);
+        window.history.pushState('', '', '/');
+        $.ajax({
+            method: 'GET',
+            'url': '/lookupPubKey/',
+            'data': {
+                'fingerprint': fingerprint
+            }
+        }).done(function(pubStr){
+            var pub = addPubKey(pair, pubStr);
+            if(fingerprint != pub.primaryKey.fingerprint){
+                alert('fingerprint mismatch');//TODO
+            }
+        }).fail(function(resp){
+        }); 
     }
-	
+    
     refreshChallenge(pair);
-	changeInterval(pair, $('#refresh-time').val());
+    changeInterval(pair, $('#refresh-time').val());
 }
 
 function changeInterval(pair, sec){
-	sec = Math.max(1, sec);
-	clearInterval(refreshInterval);
-	refreshInterval = setInterval(function(){
+    sec = Math.max(1, sec);
+    clearInterval(refreshInterval);
+    refreshInterval = setInterval(function(){
         refreshChallenge(pair);
     }, sec * 1000);
 }
 
 function input(callback){
     $('#send-btn').off('click');
-	$('#send-btn').click(function(){trigger();});
+    $('#send-btn').click(function(){trigger();});
     $('#input-text').off('keypress');
     $('#input-text').keypress(function (e) {if (e.which == 13) {trigger();}});
     
@@ -424,19 +458,23 @@ function decryptKeysIn(pair){
     $('#input-text').attr('type',  'password');
     return function(pwd){
         if(pair.priv.decrypt(pwd)){
-            chat27MessageYou('Login successful');
+            $('#messages').html('');
+            $('#messages').hide();
+            $('#title-right').show();
+            hideInputForm();
+            tab('friends');
             $('#input-text').attr('type', 'text');
             input(chatIn(pair));
             init(pair);
         } else {
-            chat27MessageYou('Incorrect password');
+            messageToHTML(false, 'Incorrect password');
         }
     }
 }
 
 function nicknameIn(name){
     $('#input-text').attr('type', 'password');
-    chat27MessageYou('Enter password to encrypt keys:');
+    messageToHTML(false, 'Enter password to encrypt keys');
     input(generateKeys(name));
 }
 

@@ -1,78 +1,47 @@
 <!DOCTYPE HTML>
 <html>
     <head>
-    <meta charset="utf-8" />
-    <title>chat27</title>
-    <link rel="stylesheet" type="text/css" href="/static/style.css">
-    <link rel="icon" type="image/png" href="/static/favicon.png">
-    <script src="/static/jquery-3.0.0.min.js" language="javascript" type="text/javascript" ></script>
-    <script src="/static/openpgp.min.js" language="javascript" type="text/javascript" ></script> 
-    <script src="/static/chat27.js" language="javascript" type="text/javascript"></script>
-   </head>
-   <body>
-      <div id="title">
-        <a href="/">chat27</a>
-        <a href="https://github.com" target="_blank">
-          <img src="/static/GitHub-Mark-Light-32px.png">
-        </a>
-      </div>
-      <div id="chat-room" class="center">
-         <div id="chat-room-window">
-               <div class="tabs">
-			      <div class="tab">
-                     <input type="radio" id="tab-1" name="tab-group-1" checked>
-                     <label for="tab-1">Chat</label>
-                     <div id="messages" class="content">
-                     </div>
-                  </div>
-				  
-                  <div class="tab">
-                     <input type="radio" id="tab-2" name="tab-group-1">
-                     <label for="tab-2">Keyring</label>
-                     <div id="friends" class="content">
-                        <div id="friends-list">
-                            <div class="friend friend-box friend-selected" fingerprint="chat27">
-                               <div class="circle" style="background-color:#36D7B7;"></div>
-                               <span class="friend-name">chat27</span>
-                               <span class="unread"></span>
-                            </div>
-                            <hr>
-                        </div>
-                        <div class="friend-box">
-                           <span style="font-size: 30px">+</span>
-                           <span>Add Me URL:</span>
-                        </div>
-                        <div class="friend-box">
-                           <input id="add-me" type="text">
-                        </div>
-                     </div>
-                  </div>
-                  <div class="tab">
-                     <input type="radio" id="tab-3" name="tab-group-1">
-                     <label for="tab-3">Settings</label>
-                     <div id="settings" class="content">
-                        <br><br>
-                        <div id= "regenerate-keys" class="center btn">Regenerate keys</div>
-                        <br>
-						<div id= "delete-all-messages" class="center btn">Delete all messages</div>
-                        <br>
-						Refresh time (sec) &nbsp; <input id="refresh-time" type="number" value=7 style="width:40px">
-                     </div>
-                  </div>
-				  <div class="tab">
-                     <input type="radio" id="tab-4" name="tab-group-1">
-                     <label for="tab-4">Tab4</label>
-                     <div class="content">
-						tab4
-                     </div>
-                  </div>
-				 <!--  <div class="last-tab"></div> -->
-               </div>
-         </div>
-         <div id="input-form">
-            <input id="input-text" name="message" type="text">
-            <button id="send-btn" type="submit"> Send </button>
-         </div>
-      </div>
-   </body>
+        <meta charset="utf-8" name="viewport" content="width=600">
+        <title>Chat27</title>
+        <link rel="stylesheet" type="text/css" href="/static/style.css">
+        <link rel="icon" type="image/png" href="/static/favicon.png">
+        <script src="/static/jquery-3.0.0.min.js" language="javascript" type="text/javascript" ></script>
+        <script src="/static/openpgp.min.js" language="javascript" type="text/javascript" ></script> 
+        <script src="/static/chat27.js" language="javascript" type="text/javascript"></script>
+    </head>
+    <body>
+        <div id="chat-room">
+            <div id="title">
+                <div id="title-left">
+                    Back
+                </div>
+                <div id="title-right">
+                </div>
+                <div id="title-mid">
+                    chat27
+                </div>
+            </div>
+            <div id="chat-room-window">
+                <div id="friends">
+                    <hr>
+                </div>
+                <div id="messages">
+                </div>
+                <div id="settings">
+                    <div id= "regenerate-keys" class="center btn">Regenerate Keys</div>
+                    <div style="height:15px"></div>
+                    <div id= "delete-all-messages" class="center btn">Delete All Messages</div>
+                    <div style="height:25px"></div>
+                    Refresh Time (Sec) &nbsp; <input id="refresh-time" type="number" value="7" min="1" style="width:70px;font-size:20px;">
+                    <br><br>
+                    Add Me URL:
+                    <input id="add-me" type="text" style="font-size:20px;width:375px;text-overflow: ellipsis;">
+                </div>
+            </div>
+            <div id="input-form">
+                <input id="input-text" name="message" type="text">
+                <button id="send-btn" type="submit"> Send </button>
+            </div>
+        </div>
+    </body>
 </html>

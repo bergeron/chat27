@@ -1,10 +1,20 @@
-html {
+html, body {
     height: 100%;
     margin:0;
     padding:0;
     background-color: black;
-    /* font-family: Arial, sans-serif; */
-	font-family: monospace;
+    font-family: monospace;
+    font-size: 20px;
+}
+
+input, button {
+    font-size: 20px;
+    font-family: monospace;
+}
+
+@font-face {
+    font-family: software_tester_7;
+    src: url(software_tester_7.ttf);
 }
 
 .center {
@@ -13,64 +23,68 @@ html {
     margin-right: auto;
 }
 
-body {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-}
-
 a {
     color: black
-}
-
-hr {
-    margin: 0px;
-}
-
-input {
-    font-size: 16px;
-}
-
-@font-face {
-    font-family: software_tester_7;
-    src: url(software_tester_7.ttf);
-}
-
-#title {
-    padding-top: 10px;
-    font-size: 60px;
-    letter-spacing: 3px;
-    position: relative;
-    font-family: software_tester_7;
-    margin-left: auto;
-    margin-right: auto;
-    width: 95%;
-    max-width: 1000px;
-    z-index: 2;
-}
-
-#title a {
-    text-decoration: none;
-    color: #36D7B7;
-}
-
-#title a:hover {
-    color: white;
-}
-
-#title img {
-    margin: auto;
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    right: 0;
 }
 
 a:hover {
     color: #36D7B7;
 }
 
+hr {
+    margin: 0px;
+}
+
+#title {
+    position: relative;
+    font-family: software_tester_7;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 600px;
+    text-decoration: none;
+    color: #36D7B7;
+}
+
+#title-left {
+    display: none;
+    position: absolute;
+    left: 0;
+    font-size: 33px;
+    padding: 14px;
+}
+
+#title-left:hover {
+    cursor: pointer;
+    color: white;
+}
+
+#title-mid {
+    padding-top: 5px;
+    font-size: 50px;
+    text-align: center;
+}
+
+#title-right {
+    background-image: url("settings.svg");
+    width: 60px;
+    height: 60px;
+    background-size: 60px 60px;
+    display: none;
+    position: absolute;
+    right: 0;
+}
+
+#title-right:hover {
+    background-image: url("settings-white.svg");
+    cursor: pointer;
+}
+
+#title a:hover {
+    color: white;
+}
+
 .btn {
+    max-width: 400px;
     color: black;
     background: white;
     padding: 15px 0px;
@@ -87,14 +101,14 @@ a:hover {
 
 #chat-room {
     position: absolute;
+    width: 100%;
     margin-left: auto;
     margin-right: auto;
-    left: 0px;
-    right: 0px;
-    bottom: 15px;
-    top: 64px;
-    width: 95%;
-    max-width: 1000px;
+    left: 5px;
+    right: 5px;
+    bottom: 5px;
+    top: 5px;
+    max-width: 600px;
     border-color: #36D7B7;
     overflow: hidden;
     background-color: black;
@@ -109,8 +123,8 @@ a:hover {
     position: absolute;
     left: 10px;
     right: 10px;
-    top: 10px;
-    bottom: 100px;
+    top: 60px;
+    bottom: 90px;
     border-radius: 15px;
     -moz-border-radius: 15px;
     -webkit-border-radius: 15px;
@@ -124,20 +138,38 @@ a:hover {
     word-wrap: break-word;
 }
 
-.msg-text {
-    width:700px;
+.bubble-left {
+    margin-left: 7px;
+    display: inline-block;
+    position: relative;
+    max-width: 400px;
+    color: white;
+    padding: 7px;
+    margin-bottom: 5px;
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+    border-radius: 5px;
+    word-wrap: break-word;
+}
+
+.bubble-left:after {
+    content: '';
+    position: absolute;
+    border-style: solid;
+    border-width: 7px 7px 7px 0;
+    border-color: inherit;
+    display: block;
+    width: 0;
+    z-index: 1;
+    margin-top: -7px;
+    left: -6px;
+    top: 50%;
+
 }
 
 #messages {
- /*    overflow: auto;
-    font-size: 22px;
+    overflow: auto;
     height: 100%;
-    padding-right: 10px; */
-}
-
-.nickname {
-    font-weight: bold;
-    font-size: 30px;
 }
 
 #menu-wrapper {
@@ -158,9 +190,9 @@ a:hover {
 
 #input-text {
     height: 50px;
-    width: calc(100% - 164px);
-    font-size: 20px;
+    width: 434px;
     margin-left: 14px;
+    margin-right: -14px;
     display: inline;
     color: white;
     background-color: black;
@@ -176,12 +208,10 @@ a:hover {
 
 #send-btn {
     height: 58px;
-    margin-left: -7px;
     width: 120px;
     display: inline;
     color: white;
     background: black;
-    font-size: 20px;
     border-radius: 0 10px 10px 0;
     -moz-border-radius: 0 10px 10px 0;
     -webkit-border-radius: 0 10px 10px 0;
@@ -206,8 +236,9 @@ a:hover {
     -webkit-border-radius: 50px;
 }
 
-#friends {
-    margin-top: 10px;
+#friends{
+    padding-top: 10px;
+    display: none;
 }
 
 .friend-box {
@@ -222,104 +253,37 @@ a:hover {
     background-color: #dddddd;
 }
 
-.friend-selected {
-    background-color: #dddddd;
-    font-weight: bold;
-}
-
 #refresh {
     position: absolute;
     bottom: 7px;
     margin-left:: 20px;
-    font-size: 15px;
 }
 
 #settings {
-   padding-right: 9px;
-   padding-left: 4px;
-   font-weight: bold;
+    padding-top: 10px;
+    display: none;
+    padding-right: 9px;
+    padding-left: 4px;
+    font-weight: bold;
 }
-
-.tabs {
-	height: 30px;
-	width: 100%;
-	position: relative;   
-	/*padding-right: 2px; */
-	clear: both;
-	margin: 20px 0;
-	border-bottom-style: solid;
-	border-bottom-width: 2px;
-}
-
-.tab {    
-  float: left;
-}
-
-.tab label {
-    background-color: #ddd;
-    padding-bottom: 15px;
-    padding-top: 15px;
-    padding-left: 40px;
-    padding-right: 40px;
-    border: 2px solid black;
-    margin-left: -1px; 
-    position: relative;
-    left: 1px;
-    cursor: pointer;
-    border-top-right-radius: 7px;
-    border-top-left-radius: 7px;   
-}
-
-.tab label:hover {
-    color: #36D7B7;
-}
-
-.tab [type=radio] {
-  display: none;   
-}
-
-.content {
-    position: absolute;
-    top: 40px;
-    left: 0;
-    right: 0;
-    bottom: 0;
-}
-
-[type=radio]:checked ~ label {
-/*     width: 150px; */
-    background: white;
-    border-bottom: 2px solid white;
-    padding-top: 20px;
-}
-
-[type=radio]:checked ~ label ~ .content {
-    display: block;
-}
-
-[type=radio]:not(:checked) ~ label ~ .content {
-    display: none;    
-}
-
-/* .last-tab {
-    width: 100%;
-	height: 30px;
-    border-bottom-style: solid;
-    border-bottom-width: 2px;
-} */
 
 .unread {
     font-weight: bold;
 }
 
 .friend-info {
-    float:right;
-    font-weight: bold;
+    background-image: url("info.svg");
+    background-size: 35px 35px;
+    float: right;
+    position: relative;
+    bottom: 5px;
+    width: 35px;
+    height: 35px;
 }
 
 .friend-info:hover {
     cursor: pointer;
-    color: #36D7B7;
+    background-image: url("info-green.svg");
 }
 
 .friend-info-card {
