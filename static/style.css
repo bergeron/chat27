@@ -65,7 +65,7 @@ hr {
 }
 
 #title-right {
-    background-image: url("settings.svg");
+    background-image: url("icons/settings.svg");
     width: 60px;
     height: 60px;
     background-size: 60px 60px;
@@ -75,7 +75,7 @@ hr {
 }
 
 #title-right:hover {
-    background-image: url("settings-white.svg");
+    background-image: url("icons/settings-white.svg");
     cursor: pointer;
 }
 
@@ -272,7 +272,7 @@ hr {
 }
 
 .friend-info {
-    background-image: url("info.svg");
+    background-image: url("icons/info.svg");
     background-size: 35px 35px;
     float: right;
     position: relative;
@@ -283,7 +283,7 @@ hr {
 
 .friend-info:hover {
     cursor: pointer;
-    background-image: url("info-green.svg");
+    background-image: url("icons/info-green.svg");
 }
 
 .friend-info-card {
