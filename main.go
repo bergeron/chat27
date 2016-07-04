@@ -459,7 +459,6 @@ func lookupPubKeyHandler(db *bolt.DB) func(w http.ResponseWriter, r *http.Reques
 }
 
 func verifySignature(pub string, signature string, challenge string)(bool, error) {
-
     keyring, err := openpgp.ReadArmoredKeyRing(bytes.NewBufferString(pub))
     if err != nil {
         return false, err   /* Failed to parse public key */
