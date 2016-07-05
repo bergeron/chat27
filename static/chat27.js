@@ -13,13 +13,13 @@ $(document).ready(start);
 function start(){
     var pair = getKeys();
     if(pair){
-        messageToHTML(false, 'Keys found in localStorage ({0})'.format(pair.pub.nickname()));
-        messageToHTML(false, 'Enter password to decrypt');
+        messageToHTML(false, 'Keys found in localStorage ({0})'.format(pair.pub.nickname()), false);
+        messageToHTML(false, 'Enter password to decrypt', false);
         input(decryptKeysIn(pair));
     } else {
-        messageToHTML(false, 'No keys found in localStorage');
-        messageToHTML(false, 'Generating keys');
-        messageToHTML(false, 'Enter nickname');
+        messageToHTML(false, 'No keys found in localStorage', false);
+        messageToHTML(false, 'Generating keys', false);
+        messageToHTML(false, 'Enter nickname', false);
         input(nicknameIn);
     }
 }
@@ -80,6 +80,9 @@ function generateKeys(nickname){
 }
 
 function sendChallenge(pair, toPub, text){
+    if(text.length == 0){
+        return;
+    }
     /* Encrypt with their pub for transmission, own pub for storage */
     var signedMsg = openpgp.message.fromText(text).sign([pair.priv]);
     Promise.all([signedMsg.encrypt([toPub]), signedMsg.encrypt([pair.pub])]).then(function(r){
@@ -205,8 +208,8 @@ function addPubKey(pair, pubStr){
 
 function switchFriend(pair, friendFingerprint){
     $('#messages').html('');
+    $('#title-mid').data('fingerprint', friendFingerprint);
     tab('messages');
-    $('.friend-selected').find('.unread').html('');
 
     /* Check cache for plaintexts, else decrypt and initialize cache */
     var read = cache.readMessages[friendFingerprint];
@@ -216,7 +219,7 @@ function switchFriend(pair, friendFingerprint){
         cache.unreadMessages[friendFingerprint] = [];
         for(var i=0; i < merge.length; i++){
             var m = merge[i];
-            messageToHTML(m.fromFingerprint, m.text);
+            messageToHTML(m.fromFingerprint, m.text, m.outgoing);
         }
     } else {
         cache.unreadMessages[friendFingerprint] = [];   /* Avoid double printing these since theyre also stored */
@@ -240,7 +243,7 @@ function switchFriend(pair, friendFingerprint){
     }
 }
 
-/* Message is signed-and-encrypted */
+/* Message is signed and encrypted */
 window.openpgp.message.Message.prototype.store = function(fromPub, toPub, outgoing) {
     localStorage.setItem('chat27-messages', JSON.stringify(getMessages().concat([{
         'fromFingerprint': fromPub.primaryKey.fingerprint,
@@ -250,17 +253,19 @@ window.openpgp.message.Message.prototype.store = function(fromPub, toPub, outgoi
     }])));
 };
 
-/* Message is signed-and-decrypted */
+/* Message is signed and decrypted */
 window.openpgp.message.Message.prototype.cache = function(fromPub, toPub, outgoing) {
     var m = {
         'fromFingerprint': fromPub.primaryKey.fingerprint,
         'toFingerprint': toPub.primaryKey.fingerprint,
-        'text': this.getText()
+        'text': this.getText(),
+        'outgoing': outgoing
     }
 
+    /* Print if currently chatting with friend */
     var friendFinger = outgoing ? toPub.primaryKey.fingerprint : fromPub.primaryKey.fingerprint;
-    if(friendFinger == $('.friend-selected').attr('fingerprint')){
-        messageToHTML(fromPub.primaryKey.fingerprint, this.getText());
+    if($('#messages').css('display') != 'none' && $('#title-mid').data('fingerprint') == friendFinger){
+        messageToHTML(fromPub.primaryKey.fingerprint, this.getText(), outgoing);
         var pre = cache.readMessages[friendFinger] || [];
         cache.readMessages[friendFinger] = pre.concat([m]);
     } else {
@@ -294,9 +299,9 @@ function addFriendHTML(pub){
     $('#friends').append(html);
 }
 
-function messageToHTML(fingerprint, text){
+function messageToHTML(fingerprint, text, outgoing){
     var color = fingerprint ? hashToDarkColor(fingerprint) : '000000';
-    var message = $('<div class="bubble-left"></div>');
+    var message = $('<span class="{0}"></span>'.format(outgoing ? 'bubble-right' : 'bubble-left'));
     message.css({
         'background-color': '#{0}'.format(color),
         'border-color': 'transparent #{0}'.format(color)
@@ -304,9 +309,8 @@ function messageToHTML(fingerprint, text){
 
     message.html(escapeHtml(text));
     $('#messages').append(message);
-    $('#messages').append('<br>');
-    var msgWindow = $('#messages');
-    msgWindow.scrollTop(msgWindow.prop('scrollHeight'));  
+    var msgWindow = $('#chat-room-window');
+    msgWindow.scrollTop(msgWindow.prop('scrollHeight'));
 }
 
 function hashToDarkColor(fingerprint) {
@@ -352,6 +356,7 @@ function showInputForm(){
 function tab(to){
     var prev = tabStack[tabStack.length - 1];
     tabStack.push(to);
+    setTitle(to);
     $('#' + prev).hide();
     $('#' + to).show();
 
@@ -372,6 +377,7 @@ function tab(to){
 function back(){
     var prev = tabStack.pop();
     var to = tabStack[tabStack.length - 1];
+    setTitle(to);
     $('#' + prev).hide();
     $('#' + to).show();
 
@@ -387,6 +393,16 @@ function back(){
     if(prev == 'settings'){
         $('#title-right').show();
     }
+}
+
+function setTitle(to){
+    var title = 'chat27';
+    if(to == 'settings'){
+        title = 'settings';
+    } else if(to == 'messages'){
+        title = keyring.publicKeys.getForId($('#title-mid').data('fingerprint')).nickname();
+    }
+    $('#title-mid').html(title);
 }
 
 function init(pair){
@@ -416,9 +432,8 @@ function init(pair){
         if(e.target.className == 'friend-info'){
             friendInfo($(this).attr('fingerprint'));
         } else {
-            $('.friend').removeClass('friend-selected');
-            $(this).addClass('friend-selected');
             switchFriend(pair, $(this).attr('fingerprint'));
+            $(this).find('.unread').html('')
         }
     });
 
@@ -447,7 +462,7 @@ function init(pair){
         }).fail(function(resp){
         }); 
     }
-    
+
     refreshChallenge(pair);
     changeInterval(pair, $('#refresh-time').val());
 }
@@ -486,27 +501,22 @@ function decryptKeysIn(pair){
             input(chatIn(pair));
             init(pair);
         } else {
-            messageToHTML(false, 'Incorrect password');
+            messageToHTML(false, 'Incorrect password', false);
         }
     }
 }
 
 function nicknameIn(name){
     $('#input-text').attr('type', 'password');
-    messageToHTML(false, 'Enter password to encrypt keys');
+    messageToHTML(false, 'Enter password to encrypt keys', false);
     input(generateKeys(name));
 }
 
 function chatIn(pair){
     return function(pt){
         $('#input-text').val('');
-        var toFinger = $('.friend-selected').attr('fingerprint');
-        if(toFinger == 'chat27'){
-            youMessageChat27(pair, pt);
-        } else {
-            var toPub = keyring.publicKeys.getForId(toFinger);
-            sendChallenge(pair, toPub, pt);
-        }
+        var toPub = keyring.publicKeys.getForId($('#title-mid').data('fingerprint'));
+        sendChallenge(pair, toPub, pt);
     }
 }
 
