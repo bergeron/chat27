@@ -408,7 +408,7 @@ function setTitle(to){
 function init(pair){
     input(chatIn(pair));
     keyring.publicKeys.keys.forEach(addFriendHTML);
-    var addMeUrl = 'localhost:11994/add/{0}'.format(pair.pub.primaryKey.fingerprint);
+    var addMeUrl = '{0}/add/{1}'.format(location.host, pair.pub.primaryKey.fingerprint);
 
     $('#menu-wrapper').show();
     $('#add-me').val(addMeUrl);
