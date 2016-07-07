@@ -86,7 +86,7 @@ func main() {
         http.ServeFile(w, r, "static/chat27.html")
     })
 
-    err = http.ListenAndServe(":11994", nil)
+    err = http.ListenAndServe(":11998", nil)
     if err != nil {
         log.Fatal(err)
     }
